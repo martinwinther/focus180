@@ -28,8 +28,10 @@ export function PomodoroTimer({
   date,
 }: PomodoroTimerProps) {
   const [isLoggingError, setIsLoggingError] = useState(false);
+  const [loggingErrorMessage, setLoggingErrorMessage] = useState<string>('');
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const segmentStartTimesRef = useRef<Map<number, Date>>(new Map());
+  const lastLoggedSegmentRef = useRef<number>(-1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -73,11 +75,28 @@ export function PomodoroTimer({
     // Only log work segments
     if (segment.type !== 'work') return;
 
+    // Guard against multiple logs for the same segment
+    if (lastLoggedSegmentRef.current === segmentIndex) {
+      console.warn('Segment already logged, skipping:', segmentIndex);
+      return;
+    }
+
     const startTime = segmentStartTimesRef.current.get(segmentIndex);
-    if (!startTime) return;
+    if (!startTime) {
+      console.error('No start time found for segment:', segmentIndex);
+      return;
+    }
 
     const endTime = new Date();
     const actualSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
+
+    // Validate that actualSeconds is reasonable (not negative or absurdly large)
+    if (actualSeconds < 0 || actualSeconds > segment.minutes * 120) {
+      console.error('Invalid actual seconds:', actualSeconds, 'for segment:', segmentIndex);
+      setIsLoggingError(true);
+      setLoggingErrorMessage('Timer data looks incorrect. Session may not have been logged.');
+      return;
+    }
 
     try {
       await logCompletedWorkSegment({
@@ -92,11 +111,19 @@ export function PomodoroTimer({
         endedAt: endTime,
       });
 
+      // Mark this segment as logged
+      lastLoggedSegmentRef.current = segmentIndex;
       segmentStartTimesRef.current.delete(segmentIndex);
       setIsLoggingError(false);
+      setLoggingErrorMessage('');
     } catch (error) {
       console.error('Error logging work segment:', error);
       setIsLoggingError(true);
+      setLoggingErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Could not save this session. Your timer still worked, but this session might not appear in history.'
+      );
     }
   };
 
@@ -356,8 +383,28 @@ export function PomodoroTimer({
         )}
 
         {isLoggingError && (
-          <div className="mt-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-300">
-            Warning: Some work sessions may not have been logged properly.
+          <div className="mt-4 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-300">
+            <div className="flex items-start gap-2">
+              <svg
+                className="h-5 w-5 flex-shrink-0 text-red-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <div>
+                <div className="font-medium">Logging issue</div>
+                <div className="mt-1 text-xs text-red-200">
+                  {loggingErrorMessage || 'Some work sessions may not have been logged properly.'}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </GlassCard>

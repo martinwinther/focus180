@@ -5,6 +5,23 @@
 
 export type TrainingDayOfWeek = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
 
+/**
+ * Custom error types for ramp generation failures
+ */
+export class RampValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RampValidationError';
+  }
+}
+
+export class NoTrainingDaysError extends RampValidationError {
+  constructor(message: string = 'No training days could be generated with the provided configuration') {
+    super(message);
+    this.name = 'NoTrainingDaysError';
+  }
+}
+
 export interface FocusSegment {
   type: 'work' | 'break';
   minutes: number;
@@ -39,9 +56,17 @@ const DAY_MAP: Record<TrainingDayOfWeek, number> = {
 /**
  * Computes all training dates between startDate and endDate (or until trainingDaysCount is reached).
  * Only includes dates that match the selected training days of the week.
+ * 
+ * @throws {RampValidationError} If configuration is invalid
+ * @throws {NoTrainingDaysError} If no training dates can be generated
  */
 export function getTrainingDates(config: FocusPlanConfig): string[] {
   const { startDate, trainingDaysPerWeek, endDate, trainingDaysCount } = config;
+  
+  // Validate training days per week is not empty
+  if (!trainingDaysPerWeek || trainingDaysPerWeek.length === 0) {
+    throw new RampValidationError('At least one training day per week must be selected');
+  }
   
   const trainingDayIndices = trainingDaysPerWeek.map(day => DAY_MAP[day]);
   const start = new Date(startDate);
@@ -52,10 +77,23 @@ export function getTrainingDates(config: FocusPlanConfig): string[] {
   
   if (endDate) {
     maxDate = new Date(endDate);
+    
+    // Validate end date is after start date
+    if (maxDate <= start) {
+      throw new RampValidationError('End date must be after start date');
+    }
+  }
+  
+  // Validate training days count if provided
+  if (trainingDaysCount !== undefined && trainingDaysCount < 1) {
+    throw new RampValidationError('Training days count must be at least 1');
   }
   
   // Generate dates until we hit the end date or reach the desired count
-  while (true) {
+  const maxIterations = 1000;
+  let iterations = 0;
+  
+  while (iterations < maxIterations) {
     const dayOfWeek = current.getDay();
     
     if (trainingDayIndices.includes(dayOfWeek)) {
@@ -71,11 +109,14 @@ export function getTrainingDates(config: FocusPlanConfig): string[] {
     }
     
     current.setDate(current.getDate() + 1);
-    
-    // Safety: prevent infinite loops
-    if (dates.length > 1000) {
-      break;
-    }
+    iterations++;
+  }
+  
+  // Validate that at least one training date was generated
+  if (dates.length === 0) {
+    throw new NoTrainingDaysError(
+      'No training days found in the specified date range with the selected days of week'
+    );
   }
   
   return dates;
@@ -84,6 +125,11 @@ export function getTrainingDates(config: FocusPlanConfig): string[] {
 /**
  * Generates daily target minutes for each training date.
  * Creates a smooth, monotonic increase from starting level to target.
+ * 
+ * Edge cases handled:
+ * - Single training day: returns target minutes directly
+ * - Starting >= target: returns flat array at target level
+ * - Very close values: ensures monotonic increase where mathematically possible
  */
 export function generateDailyTargets(
   config: FocusPlanConfig,
@@ -92,19 +138,22 @@ export function generateDailyTargets(
   const { targetDailyMinutes, startingDailyMinutes = 10 } = config;
   const n = trainingDates.length;
   
-  // Edge case: single day or no days
+  // Edge case: no days (should not happen if getTrainingDates is used first)
   if (n === 0) return [];
+  
+  // Edge case: single training day - use target directly
   if (n === 1) return [targetDailyMinutes];
   
   const start = startingDailyMinutes;
   const target = targetDailyMinutes;
   
-  // If already at or above target, just use target for all days
+  // Edge case: already at or above target - use flat target for all days
+  // This can happen if user sets a low target or high starting value
   if (start >= target) {
     return Array(n).fill(target);
   }
   
-  // Calculate linear ramp: distribute the increase across all days
+  // Standard case: linear ramp from start to target
   const totalIncrease = target - start;
   const increment = totalIncrease / (n - 1);
   
@@ -112,9 +161,17 @@ export function generateDailyTargets(
   
   for (let i = 0; i < n; i++) {
     const rawValue = start + (increment * i);
-    // Round to nearest integer, ensuring the last day is exactly the target
+    // Round to nearest integer, but ensure the last day is exactly the target
     const value = i === n - 1 ? target : Math.round(rawValue);
     targets.push(value);
+  }
+  
+  // Edge case: if rounding creates non-monotonic values (rare but possible),
+  // ensure monotonicity by enforcing minimum increments
+  for (let i = 1; i < targets.length; i++) {
+    if (targets[i] < targets[i - 1]) {
+      targets[i] = targets[i - 1];
+    }
   }
   
   return targets;
@@ -160,8 +217,32 @@ export function buildPomodoroSegmentsForDay(totalMinutes: number): FocusSegment[
 /**
  * Generates the complete focus day plan for a given configuration.
  * Returns an array of FocusDayPlan with date, index, target minutes, and segments.
+ * 
+ * @throws {RampValidationError} If configuration is invalid
+ * @throws {NoTrainingDaysError} If no training dates can be generated
  */
 export function generateFocusDayPlans(config: FocusPlanConfig): FocusDayPlan[] {
+  // Validate target daily minutes
+  if (!config.targetDailyMinutes || config.targetDailyMinutes <= 0) {
+    throw new RampValidationError('Target daily minutes must be greater than 0');
+  }
+  
+  if (config.targetDailyMinutes > 480) {
+    throw new RampValidationError('Target daily minutes cannot exceed 480 (8 hours)');
+  }
+  
+  // Validate starting daily minutes if provided
+  if (config.startingDailyMinutes !== undefined) {
+    if (config.startingDailyMinutes < 0) {
+      throw new RampValidationError('Starting daily minutes cannot be negative');
+    }
+    
+    if (config.startingDailyMinutes > config.targetDailyMinutes) {
+      throw new RampValidationError('Starting daily minutes cannot exceed target daily minutes');
+    }
+  }
+  
+  // Generate training dates (will throw if invalid)
   const trainingDates = getTrainingDates(config);
   const dailyTargets = generateDailyTargets(config, trainingDates);
   

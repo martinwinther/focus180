@@ -44,41 +44,57 @@ export interface CreateSessionLogParams {
 /**
  * Logs a completed work segment to Firestore.
  * Creates a document in /focusPlans/{planId}/days/{dayId}/sessionLogs
+ * 
+ * @throws {Error} If logging fails
  */
 export async function logCompletedWorkSegment(
   params: CreateSessionLogParams
 ): Promise<string> {
-  const {
-    userId,
-    planId,
-    dayId,
-    segmentIndex,
-    segmentType,
-    plannedMinutes,
-    actualSeconds,
-    startedAt,
-    endedAt,
-  } = params;
+  try {
+    const {
+      userId,
+      planId,
+      dayId,
+      segmentIndex,
+      segmentType,
+      plannedMinutes,
+      actualSeconds,
+      startedAt,
+      endedAt,
+    } = params;
 
-  const planRef = doc(firebaseFirestore, FOCUS_PLANS_COLLECTION, planId);
-  const dayRef = doc(planRef, DAYS_SUBCOLLECTION, dayId);
-  const sessionLogsRef = collection(dayRef, SESSION_LOGS_SUBCOLLECTION);
+    // Validate required parameters
+    if (!userId || !planId || !dayId) {
+      throw new Error('Missing required parameters for logging');
+    }
 
-  const sessionLogData = {
-    userId,
-    planId,
-    dayId,
-    segmentIndex,
-    segmentType,
-    plannedMinutes,
-    actualSeconds,
-    startedAt: Timestamp.fromDate(startedAt),
-    endedAt: Timestamp.fromDate(endedAt),
-    createdAt: serverTimestamp(),
-  };
+    if (actualSeconds < 0 || plannedMinutes < 0) {
+      throw new Error('Invalid time values');
+    }
 
-  const docRef = await addDoc(sessionLogsRef, sessionLogData);
-  return docRef.id;
+    const planRef = doc(firebaseFirestore, FOCUS_PLANS_COLLECTION, planId);
+    const dayRef = doc(planRef, DAYS_SUBCOLLECTION, dayId);
+    const sessionLogsRef = collection(dayRef, SESSION_LOGS_SUBCOLLECTION);
+
+    const sessionLogData = {
+      userId,
+      planId,
+      dayId,
+      segmentIndex,
+      segmentType,
+      plannedMinutes,
+      actualSeconds,
+      startedAt: Timestamp.fromDate(startedAt),
+      endedAt: Timestamp.fromDate(endedAt),
+      createdAt: serverTimestamp(),
+    };
+
+    const docRef = await addDoc(sessionLogsRef, sessionLogData);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error logging work segment:', error);
+    throw new Error('Failed to log work session. Please check your connection.');
+  }
 }
 
 /**

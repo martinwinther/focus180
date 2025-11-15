@@ -50,11 +50,14 @@ export function usePomodoroTimer(
 
   const currentSegment = segments[currentIndex] || null;
 
-  // Clean up interval on unmount
+  // Clean up interval on unmount or component navigation
+  // TODO: In a future enhancement, persist mid-segment state to allow
+  // resuming if user navigates away during an active session
   useEffect(() => {
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
   }, []);
@@ -165,7 +168,9 @@ export function usePomodoroTimer(
   const skipSegment = useCallback(() => {
     if (isFinished) return;
 
-    // Mark current as completed if not already
+    // Note: Skipped segments are NOT logged as completed work sessions
+    // They are only marked in the UI as "completed" for progress tracking
+    // The onSegmentComplete callback is not called for skipped segments
     if (!completedSegments.includes(currentIndex)) {
       setCompletedSegments((prev) => [...prev, currentIndex]);
     }

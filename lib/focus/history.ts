@@ -11,6 +11,8 @@ export interface DailySummary {
   actualWorkMinutes: number;
   completionRatio: number;
   isTrainingDay: boolean;
+  totalWorkSegments: number;
+  completedWorkSegments: number;
 }
 
 export interface StreakInfo {
@@ -34,8 +36,14 @@ export function buildDailySummary(
   // Convert to minutes, rounded to nearest integer
   const actualWorkMinutes = Math.round(actualWorkSeconds / 60);
 
+  // Count work segments
+  const totalWorkSegments = focusDay.segments.filter((s) => s.type === 'work').length;
+  const completedWorkSegments = sessionLogs.filter((log) => log.segmentType === 'work').length;
+
   // Compute completion ratio (0-1, clamped to max 1.5 to allow slight overcompletion)
-  const rawRatio = actualWorkMinutes / focusDay.dailyTargetMinutes;
+  const rawRatio = focusDay.dailyTargetMinutes > 0
+    ? actualWorkMinutes / focusDay.dailyTargetMinutes
+    : 0;
   const completionRatio = Math.min(rawRatio, 1.5);
 
   return {
@@ -48,6 +56,8 @@ export function buildDailySummary(
     actualWorkMinutes,
     completionRatio,
     isTrainingDay: true, // All FocusDays in the system are training days
+    totalWorkSegments,
+    completedWorkSegments,
   };
 }
 

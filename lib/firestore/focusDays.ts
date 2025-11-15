@@ -17,41 +17,58 @@ const DAYS_SUBCOLLECTION = 'days';
 /**
  * Creates all Focus Day documents for a plan.
  * Uses batched writes to efficiently store multiple days (up to 500 per batch).
+ * 
+ * @throws {Error} If batch write fails
  */
 export async function createFocusDaysForPlan(
   userId: string,
   planId: string,
   dayPlans: FocusDayPlan[]
 ): Promise<void> {
-  const planRef = doc(firebaseFirestore, FOCUS_PLANS_COLLECTION, planId);
-  const daysCollectionRef = collection(planRef, DAYS_SUBCOLLECTION);
+  if (!dayPlans || dayPlans.length === 0) {
+    throw new Error('Cannot create focus days: no day plans provided');
+  }
   
-  // Firestore batch writes support up to 500 operations per batch
-  const BATCH_SIZE = 500;
-  
-  for (let i = 0; i < dayPlans.length; i += BATCH_SIZE) {
-    const batch = writeBatch(firebaseFirestore);
-    const batchDays = dayPlans.slice(i, i + BATCH_SIZE);
+  try {
+    const planRef = doc(firebaseFirestore, FOCUS_PLANS_COLLECTION, planId);
+    const daysCollectionRef = collection(planRef, DAYS_SUBCOLLECTION);
     
-    for (const dayPlan of batchDays) {
-      // Use date as document ID for easy lookup
-      const dayDocRef = doc(daysCollectionRef, dayPlan.date);
+    // Firestore batch writes support up to 500 operations per batch
+    const BATCH_SIZE = 500;
+    
+    for (let i = 0; i < dayPlans.length; i += BATCH_SIZE) {
+      const batch = writeBatch(firebaseFirestore);
+      const batchDays = dayPlans.slice(i, i + BATCH_SIZE);
       
-      const dayData = {
-        planId,
-        userId,
-        index: dayPlan.index,
-        date: dayPlan.date,
-        dailyTargetMinutes: dayPlan.dailyTargetMinutes,
-        segments: dayPlan.segments,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
+      for (const dayPlan of batchDays) {
+        // Validate day plan has required fields
+        if (!dayPlan.date || !dayPlan.dailyTargetMinutes || !dayPlan.segments) {
+          console.error('Invalid day plan:', dayPlan);
+          throw new Error('Invalid day plan data');
+        }
+        
+        // Use date as document ID for easy lookup
+        const dayDocRef = doc(daysCollectionRef, dayPlan.date);
+        
+        const dayData = {
+          planId,
+          userId,
+          index: dayPlan.index,
+          date: dayPlan.date,
+          dailyTargetMinutes: dayPlan.dailyTargetMinutes,
+          segments: dayPlan.segments,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        
+        batch.set(dayDocRef, dayData);
+      }
       
-      batch.set(dayDocRef, dayData);
+      await batch.commit();
     }
-    
-    await batch.commit();
+  } catch (error) {
+    console.error('Error creating focus days:', error);
+    throw new Error('Failed to create training days. Please try again.');
   }
 }
 
@@ -87,62 +104,81 @@ export async function getFocusDayForDate(
  * Retrieves all Focus Days for a plan, ordered by date.
  */
 export async function getAllFocusDaysForPlan(planId: string): Promise<FocusDay[]> {
-  const planRef = doc(firebaseFirestore, FOCUS_PLANS_COLLECTION, planId);
-  const daysCollectionRef = collection(planRef, DAYS_SUBCOLLECTION);
-  
-  const q = query(daysCollectionRef);
-  const querySnapshot = await getDocs(q);
-  
-  const days: FocusDay[] = [];
-  
-  querySnapshot.forEach((doc) => {
-    days.push({
-      id: doc.id,
-      ...doc.data(),
-    } as FocusDay);
-  });
-  
-  // Sort by index to ensure proper order
-  days.sort((a, b) => a.index - b.index);
-  
-  return days;
+  try {
+    const planRef = doc(firebaseFirestore, FOCUS_PLANS_COLLECTION, planId);
+    const daysCollectionRef = collection(planRef, DAYS_SUBCOLLECTION);
+    
+    const q = query(daysCollectionRef);
+    const querySnapshot = await getDocs(q);
+    
+    const days: FocusDay[] = [];
+    
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      // Basic validation
+      if (data.date && data.dailyTargetMinutes && data.segments) {
+        days.push({
+          id: docSnap.id,
+          ...data,
+        } as FocusDay);
+      } else {
+        console.warn('Skipping invalid focus day:', docSnap.id);
+      }
+    });
+    
+    // Sort by index to ensure proper order
+    days.sort((a, b) => a.index - b.index);
+    
+    return days;
+  } catch (error) {
+    console.error('Error fetching focus days:', error);
+    throw new Error('Failed to load training days. Please try again.');
+  }
 }
 
 /**
  * Gets the next upcoming training day from today.
  */
 export async function getNextTrainingDay(planId: string): Promise<FocusDay | null> {
-  const today = new Date().toISOString().split('T')[0];
-  const planRef = doc(firebaseFirestore, FOCUS_PLANS_COLLECTION, planId);
-  const daysCollectionRef = collection(planRef, DAYS_SUBCOLLECTION);
-  
-  const q = query(
-    daysCollectionRef,
-    where('date', '>=', today)
-  );
-  
-  const querySnapshot = await getDocs(q);
-  
-  if (querySnapshot.empty) {
-    return null;
-  }
-  
-  // Find the earliest upcoming day
-  let nextDay: FocusDay | null = null;
-  let earliestDate = '';
-  
-  querySnapshot.forEach((doc) => {
-    const day = {
-      id: doc.id,
-      ...doc.data(),
-    } as FocusDay;
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const planRef = doc(firebaseFirestore, FOCUS_PLANS_COLLECTION, planId);
+    const daysCollectionRef = collection(planRef, DAYS_SUBCOLLECTION);
     
-    if (!earliestDate || day.date < earliestDate) {
-      earliestDate = day.date;
-      nextDay = day;
+    const q = query(
+      daysCollectionRef,
+      where('date', '>=', today)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      return null;
     }
-  });
-  
-  return nextDay;
+    
+    // Find the earliest upcoming day
+    let nextDay: FocusDay | null = null;
+    let earliestDate = '';
+    
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (!data.date) return;
+      
+      const day = {
+        id: docSnap.id,
+        ...data,
+      } as FocusDay;
+      
+      if (!earliestDate || day.date < earliestDate) {
+        earliestDate = day.date;
+        nextDay = day;
+      }
+    });
+    
+    return nextDay;
+  } catch (error) {
+    console.error('Error fetching next training day:', error);
+    return null; // Return null rather than throwing for this optional feature
+  }
 }
 

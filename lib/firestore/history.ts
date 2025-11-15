@@ -23,20 +23,26 @@ export async function getFocusDaysForPlan(
   userId: string,
   planId: string
 ): Promise<FocusDay[]> {
-  const planRef = doc(firebaseFirestore, FOCUS_PLANS_COLLECTION, planId);
-  const daysCollectionRef = collection(planRef, DAYS_SUBCOLLECTION);
-
-  const q = query(daysCollectionRef, where('userId', '==', userId));
-
   try {
+    const planRef = doc(firebaseFirestore, FOCUS_PLANS_COLLECTION, planId);
+    const daysCollectionRef = collection(planRef, DAYS_SUBCOLLECTION);
+
+    const q = query(daysCollectionRef, where('userId', '==', userId));
+
     const querySnapshot = await getDocs(q);
     const days: FocusDay[] = [];
 
-    querySnapshot.forEach((doc) => {
-      days.push({
-        id: doc.id,
-        ...doc.data(),
-      } as FocusDay);
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      // Validate required fields exist
+      if (data.date && data.dailyTargetMinutes && data.segments) {
+        days.push({
+          id: docSnap.id,
+          ...data,
+        } as FocusDay);
+      } else {
+        console.warn('Skipping invalid focus day:', docSnap.id);
+      }
     });
 
     // Sort by index ascending for chronological order
@@ -45,7 +51,7 @@ export async function getFocusDaysForPlan(
     return days;
   } catch (error) {
     console.error('Error fetching focus days for plan:', error);
-    return [];
+    throw new Error('Failed to load training days. Please try again.');
   }
 }
 
@@ -90,31 +96,44 @@ export async function getSessionLogsForDay(
  * Fetches and computes daily summaries for all days in a plan.
  * This performs N+1 queries (one for days, then one per day for logs).
  * Acceptable for v1, but could be optimized with batch queries or aggregation.
+ * 
+ * @throws {Error} If fetching fails
  */
 export async function getDailySummariesForPlan(
   userId: string,
   planId: string
 ): Promise<DailySummary[]> {
-  // Fetch all focus days for the plan
-  const focusDays = await getFocusDaysForPlan(userId, planId);
+  try {
+    // Fetch all focus days for the plan
+    const focusDays = await getFocusDaysForPlan(userId, planId);
 
-  if (focusDays.length === 0) {
-    return [];
+    if (focusDays.length === 0) {
+      return [];
+    }
+
+    // TODO: Consider batching these queries for better performance
+    // For now, fetch logs for each day individually
+    const summariesPromises = focusDays.map(async (day) => {
+      try {
+        const logs = await getSessionLogsForDay(userId, planId, day.id || day.date);
+        return buildDailySummary(day, logs);
+      } catch (error) {
+        console.error(`Error fetching logs for day ${day.date}:`, error);
+        // Return empty summary for this day rather than failing entire request
+        return buildDailySummary(day, []);
+      }
+    });
+
+    const summaries = await Promise.all(summariesPromises);
+
+    // Sort by date ascending
+    summaries.sort((a, b) => a.date.localeCompare(b.date));
+
+    return summaries;
+  } catch (error) {
+    console.error('Error fetching daily summaries:', error);
+    throw new Error('Failed to load progress history. Please try again.');
   }
-
-  // TODO: Consider batching these queries for better performance
-  // For now, fetch logs for each day individually
-  const summariesPromises = focusDays.map(async (day) => {
-    const logs = await getSessionLogsForDay(userId, planId, day.id || day.date);
-    return buildDailySummary(day, logs);
-  });
-
-  const summaries = await Promise.all(summariesPromises);
-
-  // Sort by date ascending
-  summaries.sort((a, b) => a.date.localeCompare(b.date));
-
-  return summaries;
 }
 
 /**
