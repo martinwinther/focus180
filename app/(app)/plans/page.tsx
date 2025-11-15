@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import {
@@ -21,7 +21,7 @@ export default function PlansPage() {
   const [completingPlanId, setCompletingPlanId] = useState<string | null>(null);
   const [resumingPlanId, setResumingPlanId] = useState<string | null>(null);
 
-  const loadPlans = async () => {
+  const loadPlans = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
@@ -45,11 +45,11 @@ export default function PlansPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     loadPlans();
-  }, [user]);
+  }, [loadPlans]);
 
   const handleMarkAsCompleted = async (planId: string) => {
     if (!user || !window.confirm('Mark this plan as completed?')) return;

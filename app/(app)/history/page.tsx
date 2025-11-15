@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { getActiveFocusPlanForUser } from '@/lib/firestore/focusPlans';
@@ -25,7 +25,7 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
 
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
@@ -57,11 +57,11 @@ export default function HistoryPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     loadHistory();
-  }, [user]);
+  }, [loadHistory]);
 
   if (loading) {
     return <LoadingSpinner message="Loading history..." />;

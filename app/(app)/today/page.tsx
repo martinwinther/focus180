@@ -356,60 +356,61 @@ export default function TodayPage() {
     );
   }
 
+  // Ensure plan exists if we have todayDay (they should always be paired)
+  if (!plan || !todayDay) {
+    return <LoadingSpinner message="Loading..." />;
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      {todayDay && (
-        <>
-          <GlassCard>
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold text-white">Today&apos;s training</h1>
-              <p className="mt-1 text-white/70">
-                {formatDate(todayDay.date)} • Day {todayDay.index}
-              </p>
+      <GlassCard>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-white">Today&apos;s training</h1>
+          <p className="mt-1 text-white/70">
+            {formatDate(todayDay.date)} • Day {todayDay.index}
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl bg-white/5 p-4">
+            <div className="text-sm text-white/60">Today&apos;s target</div>
+            <div className="mt-1 text-2xl font-bold text-white">
+              {todayDay.dailyTargetMinutes} min
             </div>
+          </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-xl bg-white/5 p-4">
-                <div className="text-sm text-white/60">Today&apos;s target</div>
-                <div className="mt-1 text-2xl font-bold text-white">
-                  {todayDay.dailyTargetMinutes} min
-                </div>
-              </div>
-
-              <div className="rounded-xl bg-white/5 p-4">
-                <div className="text-sm text-white/60">Plan goal</div>
-                <div className="mt-1 text-2xl font-bold text-white">
-                  {plan.targetDailyMinutes} min
-                </div>
-              </div>
-
-              <div className="rounded-xl bg-white/5 p-4">
-                <div className="text-sm text-white/60">Training days</div>
-                <div className="mt-1 text-lg font-semibold text-white">
-                  {formatTrainingDays(plan.trainingDaysPerWeek)}
-                </div>
-              </div>
+          <div className="rounded-xl bg-white/5 p-4">
+            <div className="text-sm text-white/60">Plan goal</div>
+            <div className="mt-1 text-2xl font-bold text-white">
+              {plan.targetDailyMinutes} min
             </div>
-          </GlassCard>
+          </div>
 
-          <TodayProgress
-            userId={user!.uid}
-            planId={plan.id!}
-            focusDay={todayDay}
-            refreshKey={progressKey}
-          />
+          <div className="rounded-xl bg-white/5 p-4">
+            <div className="text-sm text-white/60">Training days</div>
+            <div className="mt-1 text-lg font-semibold text-white">
+              {formatTrainingDays(plan.trainingDaysPerWeek)}
+            </div>
+          </div>
+        </div>
+      </GlassCard>
 
-          <PomodoroTimer
-            userId={user!.uid}
-            planId={plan.id!}
-            dayId={todayDay.id!}
-            segments={todayDay.segments}
-            dailyTargetMinutes={todayDay.dailyTargetMinutes}
-            dayIndex={todayDay.index}
-            date={todayDay.date}
-          />
-        </>
-      )}
+      <TodayProgress
+        userId={user!.uid}
+        planId={plan.id!}
+        focusDay={todayDay}
+        refreshKey={progressKey}
+      />
+
+      <PomodoroTimer
+        userId={user!.uid}
+        planId={plan.id!}
+        dayId={todayDay.id!}
+        segments={todayDay.segments}
+        dailyTargetMinutes={todayDay.dailyTargetMinutes}
+        dayIndex={todayDay.index}
+        date={todayDay.date}
+      />
     </div>
   );
 }
