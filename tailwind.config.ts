@@ -14,6 +14,11 @@ const config: Config = {
           light: '#818CF8',
           dark: '#4F46E5',
         },
+        secondary: {
+          DEFAULT: '#F59E0B',
+          light: '#FBBF24',
+          dark: '#D97706',
+        },
         glass: {
           white: 'rgba(255, 255, 255, 0.1)',
           border: 'rgba(255, 255, 255, 0.2)',

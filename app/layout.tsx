@@ -11,11 +11,23 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: 'Focus Ramp – Build your focus capacity, gradually',
-  description: 'A calm, structured approach to building deep work capacity. Set a goal and target date, then follow a personalized training plan with Pomodoro sessions that grow with you.',
+  description: 'Gradually build your focus capacity with guided Pomodoro training tailored to your goals. Set a focus goal, choose an end date, and follow a personalized training plan that grows with you.',
   keywords: ['focus', 'pomodoro', 'productivity', 'deep work', 'training', 'focus training', 'attention', 'concentration'],
   authors: [{ name: 'Focus Ramp' }],
   viewport: 'width=device-width, initial-scale=1',
   themeColor: '#667eea',
+  openGraph: {
+    title: 'Focus Ramp – Build your focus capacity, gradually',
+    description: 'Gradually build your focus capacity with guided Pomodoro training tailored to your goals.',
+    type: 'website',
+    locale: 'en_US',
+    siteName: 'Focus Ramp',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Focus Ramp – Build your focus capacity, gradually',
+    description: 'Gradually build your focus capacity with guided Pomodoro training tailored to your goals.',
+  },
 };
 
 export default function RootLayout({
