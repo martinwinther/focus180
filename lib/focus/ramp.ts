@@ -183,31 +183,36 @@ export function generateDailyTargets(
  * - Work sessions are ≤ 25 minutes
  * - Standard break between work sessions is 5 minutes
  * - If totalMinutes < 20: no breaks, just work segments
- * - If totalMinutes ≥ 20: split into work segments with 5-min breaks between them
+ * - If totalMinutes ≥ 20: split into evenly distributed work segments with 5-min breaks between them
+ * - Avoids tiny tail segments by distributing minutes evenly across all segments
  */
 export function buildPomodoroSegmentsForDay(totalMinutes: number): FocusSegment[] {
-  const segments: FocusSegment[] = [];
+  const MAX_SEGMENT_MIN = 25;
+  const BREAK_MIN = 5;
   
-  // Short days: no breaks
+  // Short days: no breaks, single work segment
   if (totalMinutes < 20) {
-    segments.push({ type: 'work', minutes: totalMinutes });
-    return segments;
+    return [{ type: 'work', minutes: totalMinutes }];
   }
   
-  // Longer days: split into 25-min work blocks with 5-min breaks
-  const MAX_WORK_SEGMENT = 25;
-  const BREAK_DURATION = 5;
+  // Longer days: distribute evenly across N segments (each ≤ 25 minutes)
+  const N = Math.max(1, Math.ceil(totalMinutes / MAX_SEGMENT_MIN));
+  const base = Math.floor(totalMinutes / N);
+  const remainder = totalMinutes % N;
   
-  let remainingMinutes = totalMinutes;
+  // Build work segment lengths: first 'remainder' segments get base + 1, rest get base
+  const workSegmentMinutes: number[] = [];
+  for (let i = 0; i < N; i++) {
+    workSegmentMinutes.push(i < remainder ? base + 1 : base);
+  }
   
-  while (remainingMinutes > 0) {
-    const workMinutes = Math.min(remainingMinutes, MAX_WORK_SEGMENT);
-    segments.push({ type: 'work', minutes: workMinutes });
-    remainingMinutes -= workMinutes;
-    
-    // Add break only if there's more work to do
-    if (remainingMinutes > 0) {
-      segments.push({ type: 'break', minutes: BREAK_DURATION });
+  // Build segments array: work segments with breaks between them
+  const segments: FocusSegment[] = [];
+  for (let i = 0; i < N; i++) {
+    segments.push({ type: 'work', minutes: workSegmentMinutes[i] });
+    // Add break between work segments (not after the last one)
+    if (i < N - 1) {
+      segments.push({ type: 'break', minutes: BREAK_MIN });
     }
   }
   
