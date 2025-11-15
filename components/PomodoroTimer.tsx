@@ -298,7 +298,7 @@ export function PomodoroTimer({
           console.log('Day marked as completed');
 
           // Check if this is the last training day in the plan
-          const isLastDay = await isLastTrainingDay(planId, date);
+          const isLastDay = await isLastTrainingDay(planId, date, userId);
           if (isLastDay) {
             await completePlan(userId, planId);
             console.log('Plan completed - user finished the last training day');

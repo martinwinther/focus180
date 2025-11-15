@@ -69,7 +69,7 @@ export default function TodayPage() {
         setTodayDay(dayData);
         
         if (!dayData) {
-          const upcoming = await getNextTrainingDay(existingPlan.id!);
+          const upcoming = await getNextTrainingDay(existingPlan.id!, user.uid);
           setNextDay(upcoming);
         }
       } else {
@@ -436,7 +436,7 @@ function PlanCompletedView({ plan, userId }: PlanCompletedViewProps) {
       
       setLoading(true);
       try {
-        const planStats = await getPlanCompletionStats(plan.id);
+        const planStats = await getPlanCompletionStats(plan.id, userId);
         setStats(planStats);
       } catch (error) {
         console.error('Error loading plan stats:', error);

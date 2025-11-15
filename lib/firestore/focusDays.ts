@@ -108,14 +108,16 @@ export async function getFocusDayForDate(
 
 /**
  * Retrieves all Focus Days for a plan, ordered by date.
+ * @param planId - The ID of the plan
+ * @param userId - The ID of the user (required for security rules)
  */
-export async function getAllFocusDaysForPlan(planId: string): Promise<FocusDay[]> {
+export async function getAllFocusDaysForPlan(planId: string, userId: string): Promise<FocusDay[]> {
   try {
     const db = await getFirebaseFirestore();
     const planRef = doc(db, FOCUS_PLANS_COLLECTION, planId);
     const daysCollectionRef = collection(planRef, DAYS_SUBCOLLECTION);
     
-    const q = query(daysCollectionRef);
+    const q = query(daysCollectionRef, where('userId', '==', userId));
     const querySnapshot = await getDocs(q);
     
     const days: FocusDay[] = [];
@@ -145,8 +147,10 @@ export async function getAllFocusDaysForPlan(planId: string): Promise<FocusDay[]
 
 /**
  * Gets the next upcoming training day from today.
+ * @param planId - The ID of the plan
+ * @param userId - The ID of the user (required for security rules)
  */
-export async function getNextTrainingDay(planId: string): Promise<FocusDay | null> {
+export async function getNextTrainingDay(planId: string, userId: string): Promise<FocusDay | null> {
   try {
     const db = await getFirebaseFirestore();
     const today = new Date().toISOString().split('T')[0];
@@ -155,6 +159,7 @@ export async function getNextTrainingDay(planId: string): Promise<FocusDay | nul
     
     const q = query(
       daysCollectionRef,
+      where('userId', '==', userId),
       where('date', '>=', today)
     );
     

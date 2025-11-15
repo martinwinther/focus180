@@ -46,7 +46,10 @@ service cloud.firestore {
       // Focus Days subcollection
       match /days/{dayId} {
         // Users can read days from their own plans
-        allow read: if isOwner(resource.data.userId);
+        // For document reads: check resource.data.userId
+        // For collection queries: query must filter by userId (which we now require),
+        // and Firestore will validate each returned document against this rule
+        allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
         
         // Users can create days for their own plans
         allow create: if isAuthenticated() && 

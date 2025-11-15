@@ -21,7 +21,7 @@ export async function evaluatePlanCompletion(
 ): Promise<PlanCompletionEvaluation> {
   try {
     // Fetch all days for the plan
-    const allDays = await getAllFocusDaysForPlan(planId);
+    const allDays = await getAllFocusDaysForPlan(planId, userId);
     
     if (allDays.length === 0) {
       return {
@@ -112,10 +112,11 @@ export async function checkAndCompletePlanIfFinished(
  */
 export async function isLastTrainingDay(
   planId: string,
-  dayDate: string
+  dayDate: string,
+  userId: string
 ): Promise<boolean> {
   try {
-    const allDays = await getAllFocusDaysForPlan(planId);
+    const allDays = await getAllFocusDaysForPlan(planId, userId);
     
     if (allDays.length === 0) {
       return false;
@@ -137,9 +138,9 @@ export async function isLastTrainingDay(
  * Gets completion statistics for a plan.
  * Useful for displaying on the completion screen.
  */
-export async function getPlanCompletionStats(planId: string) {
+export async function getPlanCompletionStats(planId: string, userId: string) {
   try {
-    const allDays = await getAllFocusDaysForPlan(planId);
+    const allDays = await getAllFocusDaysForPlan(planId, userId);
     
     const completedDays = allDays.filter(
       (day) => day.status === 'completed'

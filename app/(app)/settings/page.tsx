@@ -62,7 +62,7 @@ export default function SettingsPage() {
           
           // Load day count for progress
           try {
-            const allDays = await getAllFocusDaysForPlan(activePlan.id);
+            const allDays = await getAllFocusDaysForPlan(activePlan.id, user.uid);
             const today = new Date().toISOString().split('T')[0];
             const completed = allDays.filter((day) => day.date < today).length;
             setDayCount({ completed, total: allDays.length });
