@@ -11,6 +11,7 @@ import {
 import { getFocusDayForDate, getNextTrainingDay } from '@/lib/firestore/focusDays';
 import type { FocusPlan, FocusDay } from '@/lib/types/focusPlan';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
+import { TodayProgress } from '@/components/TodayProgress';
 
 export default function TodayPage() {
   const { user } = useAuth();
@@ -20,6 +21,7 @@ export default function TodayPage() {
   const [nextDay, setNextDay] = useState<FocusDay | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [progressKey, setProgressKey] = useState(0);
 
   useEffect(() => {
     async function loadPlan() {
@@ -72,6 +74,17 @@ export default function TodayPage() {
 
     loadPlan();
   }, [user, config, clearPlanConfig]);
+
+  // Refresh progress periodically to show updated stats
+  useEffect(() => {
+    if (!todayDay) return;
+
+    const interval = setInterval(() => {
+      setProgressKey((prev) => prev + 1);
+    }, 10000); // Refresh every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [todayDay]);
 
   if (loading || creating) {
     return (
@@ -269,6 +282,13 @@ export default function TodayPage() {
               </div>
             </div>
           </div>
+
+          <TodayProgress
+            userId={user!.uid}
+            planId={plan.id!}
+            focusDay={todayDay}
+            refreshKey={progressKey}
+          />
 
           <PomodoroTimer
             userId={user!.uid}

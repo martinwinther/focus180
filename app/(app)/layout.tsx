@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 
@@ -11,6 +11,7 @@ export default function AppLayout({
   children: React.ReactNode;
 }>) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading, isVerified, signOut } = useAuth();
 
   useEffect(() => {
@@ -106,13 +107,22 @@ export default function AppLayout({
             </Link>
 
             <nav className="hidden md:flex items-center gap-1">
-              <Link href="/today" className="nav-link nav-link-active">
+              <Link
+                href="/today"
+                className={`nav-link ${pathname === '/today' ? 'nav-link-active' : ''}`}
+              >
                 Today
               </Link>
-              <Link href="/history" className="nav-link">
+              <Link
+                href="/history"
+                className={`nav-link ${pathname === '/history' ? 'nav-link-active' : ''}`}
+              >
                 History
               </Link>
-              <Link href="/settings" className="nav-link">
+              <Link
+                href="/settings"
+                className={`nav-link ${pathname === '/settings' ? 'nav-link-active' : ''}`}
+              >
                 Settings
               </Link>
             </nav>
@@ -138,13 +148,22 @@ export default function AppLayout({
 
       <nav className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 md:hidden">
         <div className="glass-nav flex items-center gap-1 px-2 py-2">
-          <Link href="/today" className="nav-link nav-link-active">
+          <Link
+            href="/today"
+            className={`nav-link ${pathname === '/today' ? 'nav-link-active' : ''}`}
+          >
             Today
           </Link>
-          <Link href="/history" className="nav-link">
+          <Link
+            href="/history"
+            className={`nav-link ${pathname === '/history' ? 'nav-link-active' : ''}`}
+          >
             History
           </Link>
-          <Link href="/settings" className="nav-link">
+          <Link
+            href="/settings"
+            className={`nav-link ${pathname === '/settings' ? 'nav-link-active' : ''}`}
+          >
             Settings
           </Link>
         </div>
