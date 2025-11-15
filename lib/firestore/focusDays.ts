@@ -5,6 +5,8 @@ import {
   query,
   where,
   getDocs,
+  updateDoc,
+  getDoc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { firebaseFirestore } from '@/lib/firebase/client';
@@ -57,6 +59,8 @@ export async function createFocusDaysForPlan(
           date: dayPlan.date,
           dailyTargetMinutes: dayPlan.dailyTargetMinutes,
           segments: dayPlan.segments,
+          status: 'pending',
+          completedAt: null,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
@@ -179,6 +183,45 @@ export async function getNextTrainingDay(planId: string): Promise<FocusDay | nul
   } catch (error) {
     console.error('Error fetching next training day:', error);
     return null; // Return null rather than throwing for this optional feature
+  }
+}
+
+/**
+ * Marks a FocusDay as completed.
+ * Sets status = "completed" and completedAt = serverTimestamp().
+ * 
+ * @throws {Error} If update fails or day doesn't exist
+ */
+export async function markDayCompleted(
+  userId: string,
+  planId: string,
+  dayId: string
+): Promise<void> {
+  try {
+    const planRef = doc(firebaseFirestore, FOCUS_PLANS_COLLECTION, planId);
+    const dayDocRef = doc(planRef, DAYS_SUBCOLLECTION, dayId);
+    
+    // Verify the day exists and belongs to the user
+    const dayDoc = await getDoc(dayDocRef);
+    
+    if (!dayDoc.exists()) {
+      throw new Error('Day not found');
+    }
+    
+    const dayData = dayDoc.data();
+    if (dayData.userId !== userId) {
+      throw new Error('Unauthorized: Day does not belong to user');
+    }
+    
+    // Update the day status
+    await updateDoc(dayDocRef, {
+      status: 'completed',
+      completedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error('Error marking day as completed:', error);
+    throw new Error('Failed to mark day as completed. Please try again.');
   }
 }
 

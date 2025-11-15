@@ -190,6 +190,9 @@ export default function PlansPage() {
     );
   }
 
+  // Check if there's a recently completed plan but no active plan
+  const mostRecentCompletedPlan = plans.find((p) => p.status === 'completed');
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
@@ -198,6 +201,40 @@ export default function PlansPage() {
           <Button>Create new plan</Button>
         </Link>
       </div>
+
+      {!activePlan && mostRecentCompletedPlan && (
+        <GlassCard>
+          <div className="text-center">
+            <div className="mb-3 flex justify-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-500/20">
+                <svg
+                  className="h-6 w-6 text-green-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+            </div>
+            <h2 className="mb-1 text-lg font-bold text-white">Most recent plan: Completed</h2>
+            <p className="mb-4 text-sm text-white/60">
+              {mostRecentCompletedPlan.completedAt &&
+                `Completed on ${formatDate(
+                  mostRecentCompletedPlan.completedAt.toDate().toISOString().split('T')[0]
+                )}`}
+            </p>
+            <Link href="/onboarding">
+              <Button>Start a new plan</Button>
+            </Link>
+          </div>
+        </GlassCard>
+      )}
 
       {activePlan && (
         <GlassCard>
@@ -270,9 +307,15 @@ export default function PlansPage() {
                     <Badge variant={getStatusBadgeVariant(plan.status)}>
                       {plan.status.charAt(0).toUpperCase() + plan.status.slice(1)}
                     </Badge>
-                    <span className="text-sm text-white/60">
-                      Started {formatDate(plan.startDate)}
-                    </span>
+                    {plan.status === 'completed' && plan.completedAt ? (
+                      <span className="text-sm text-white/60">
+                        Completed {formatDate(plan.completedAt.toDate().toISOString().split('T')[0])}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-white/60">
+                        Started {formatDate(plan.startDate)}
+                      </span>
+                    )}
                   </div>
 
                   <div className="mt-3 grid gap-3 sm:grid-cols-3">

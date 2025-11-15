@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { usePomodoroTimer } from '@/lib/focus/usePomodoroTimer';
 import { logCompletedWorkSegment, getSessionLogsForDay } from '@/lib/firestore/sessionLogs';
 import { getUserPreferences } from '@/lib/firestore/userPreferences';
+import { markDayCompleted } from '@/lib/firestore/focusDays';
+import { isLastTrainingDay, completePlan } from '@/lib/focus/planCompletion';
 import {
   canUseNotifications,
   requestNotificationPermission,
@@ -288,6 +290,26 @@ export function PomodoroTimer({
       segmentStartTimesRef.current.delete(segmentIndex);
       setIsLoggingError(false);
       setLoggingErrorMessage('');
+
+      // If this is the last segment, mark the day as completed
+      // TODO: Could add more nuanced completion rules based on completion ratio (e.g. ≥80%)
+      if (isLastSegment) {
+        try {
+          await markDayCompleted(userId, planId, dayId);
+          console.log('Day marked as completed');
+
+          // Check if this is the last training day in the plan
+          const isLastDay = await isLastTrainingDay(planId, date);
+          if (isLastDay) {
+            await completePlan(userId, planId);
+            console.log('Plan completed - user finished the last training day');
+          }
+        } catch (error) {
+          console.error('Error marking day/plan as completed:', error);
+          // Don't show error to user - their progress is already logged
+          // The day completion status can be fixed later if needed
+        }
+      }
     } catch (error) {
       console.error('Error logging work segment:', error);
       setIsLoggingError(true);

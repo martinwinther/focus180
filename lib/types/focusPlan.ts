@@ -31,6 +31,8 @@ export interface FocusSegment {
   minutes: number;
 }
 
+export type FocusDayStatus = 'pending' | 'completed' | 'missed';
+
 export interface FocusDay {
   id?: string;
   planId: string;
@@ -39,6 +41,8 @@ export interface FocusDay {
   date: string;
   dailyTargetMinutes: number;
   segments: FocusSegment[];
+  status?: FocusDayStatus;
+  completedAt?: Timestamp | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

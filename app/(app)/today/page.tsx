@@ -10,6 +10,10 @@ import {
   getAllPlansForUser,
 } from '@/lib/firestore/focusPlans';
 import { getFocusDayForDate, getNextTrainingDay } from '@/lib/firestore/focusDays';
+import {
+  checkAndCompletePlanIfFinished,
+  getPlanCompletionStats,
+} from '@/lib/focus/planCompletion';
 import type { FocusPlan, FocusDay } from '@/lib/types/focusPlan';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
 import { TodayProgress } from '@/components/TodayProgress';
@@ -20,6 +24,7 @@ export default function TodayPage() {
   const { config, clearPlanConfig } = usePlanConfig();
   const [plan, setPlan] = useState<FocusPlan | null>(null);
   const [pausedPlan, setPausedPlan] = useState<FocusPlan | null>(null);
+  const [completedPlan, setCompletedPlan] = useState<FocusPlan | null>(null);
   const [todayDay, setTodayDay] = useState<FocusDay | null>(null);
   const [nextDay, setNextDay] = useState<FocusDay | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,11 +39,33 @@ export default function TodayPage() {
     setError('');
     
     try {
-      const existingPlan = await getActiveFocusPlanForUser(user.uid);
+      let existingPlan = await getActiveFocusPlanForUser(user.uid);
 
       if (existingPlan) {
+        // Check if the plan should be completed based on calendar
+        const wasCompleted = await checkAndCompletePlanIfFinished(
+          user.uid,
+          existingPlan.id!
+        );
+
+        if (wasCompleted) {
+          // Reload the plan to get updated status
+          const allPlans = await getAllPlansForUser(user.uid);
+          const completedPlanData = allPlans.find((p) => p.id === existingPlan!.id);
+          
+          if (completedPlanData && completedPlanData.status === 'completed') {
+            setCompletedPlan(completedPlanData);
+            setPlan(null);
+            setPausedPlan(null);
+            clearPlanConfig();
+            setLoading(false);
+            return;
+          }
+        }
+
         setPlan(existingPlan);
         setPausedPlan(null);
+        setCompletedPlan(null);
         clearPlanConfig();
         
         const today = new Date().toISOString().split('T')[0];
@@ -50,19 +77,26 @@ export default function TodayPage() {
           setNextDay(upcoming);
         }
       } else {
-        // No active plan, check if there's a paused plan
+        // No active plan, check if there's a paused or completed plan
         const allPlans = await getAllPlansForUser(user.uid);
         const paused = allPlans.find((p) => p.status === 'paused');
+        const completed = allPlans.find((p) => p.status === 'completed');
         
-        if (paused) {
+        if (completed) {
+          setCompletedPlan(completed);
+          setPlan(null);
+          setPausedPlan(null);
+        } else if (paused) {
           setPausedPlan(paused);
           setPlan(null);
+          setCompletedPlan(null);
         } else if (config) {
           // Create new plan from config
           setCreating(true);
           try {
             const newPlan = await createNewActivePlanForUser(user.uid, config);
             setPlan(newPlan);
+            setCompletedPlan(null);
             clearPlanConfig();
             
             if (newPlan) {
@@ -154,6 +188,11 @@ export default function TodayPage() {
         </GlassCard>
       </div>
     );
+  }
+
+  // Show completed plan state
+  if (completedPlan && !plan) {
+    return <PlanCompletedView plan={completedPlan} userId={user!.uid} />;
   }
 
   // Show paused plan state
@@ -378,6 +417,152 @@ export default function TodayPage() {
           />
         </>
       )}
+    </div>
+  );
+}
+
+interface PlanCompletedViewProps {
+  plan: FocusPlan;
+  userId: string;
+}
+
+function PlanCompletedView({ plan, userId }: PlanCompletedViewProps) {
+  const [stats, setStats] = useState<{
+    totalDays: number;
+    completedDays: number;
+    totalPlannedMinutes: number;
+    longestStreak: number;
+    completionRate: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadStats() {
+      if (!plan.id) return;
+      
+      setLoading(true);
+      try {
+        const planStats = await getPlanCompletionStats(plan.id);
+        setStats(planStats);
+      } catch (error) {
+        console.error('Error loading plan stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadStats();
+  }, [plan.id]);
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <GlassCard>
+          <div className="text-center py-8">
+            <div className="text-white/60">Loading completion details...</div>
+          </div>
+        </GlassCard>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-6">
+      <GlassCard>
+        <div className="text-center">
+          <div className="mb-4 flex justify-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-green-500/20 border-2 border-green-500/30">
+              <svg
+                className="h-10 w-10 text-green-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+          </div>
+
+          <h1 className="mb-3 text-4xl font-bold text-white">
+            You completed your focus ramp!
+          </h1>
+
+          <p className="mb-8 text-lg text-white/70">
+            You reached the end of this focus plan. Nice work building up your daily focus time.
+          </p>
+
+          {stats && (
+            <div className="mb-8 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+              <div className="rounded-xl bg-white/5 p-4">
+                <div className="text-sm text-white/60">Days completed</div>
+                <div className="mt-1 text-2xl font-bold text-white">
+                  {stats.completedDays} / {stats.totalDays}
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-white/5 p-4">
+                <div className="text-sm text-white/60">Completion rate</div>
+                <div className="mt-1 text-2xl font-bold text-white">
+                  {Math.round(stats.completionRate * 100)}%
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-white/5 p-4">
+                <div className="text-sm text-white/60">Total focus time</div>
+                <div className="mt-1 text-2xl font-bold text-white">
+                  {Math.round(stats.totalPlannedMinutes / 60)}h
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-white/5 p-4">
+                <div className="text-sm text-white/60">Longest streak</div>
+                <div className="mt-1 text-2xl font-bold text-white">
+                  {stats.longestStreak} {stats.longestStreak === 1 ? 'day' : 'days'}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {plan.completedAt && (
+            <p className="mb-6 text-sm text-white/50">
+              Completed on {formatDate(plan.completedAt.toDate().toISOString().split('T')[0])}
+            </p>
+          )}
+
+          <div className="flex justify-center gap-3">
+            <Link href="/onboarding">
+              <Button>Start a new plan</Button>
+            </Link>
+            <Link href="/history">
+              <Button variant="secondary">View history</Button>
+            </Link>
+          </div>
+        </div>
+      </GlassCard>
+
+      <GlassCard>
+        <div className="text-center">
+          <h2 className="mb-2 text-xl font-bold text-white">What&apos;s next?</h2>
+          <p className="text-white/70">
+            Keep building your focus capacity with a new plan, or take a break and maintain your current level.
+          </p>
+        </div>
+      </GlassCard>
     </div>
   );
 }
