@@ -161,7 +161,6 @@ export async function updateTrainingDaysPerWeekForFuture(
     }));
 
     // Delete old future days and write new ones in batches
-    const db = getFirebaseFirestore();
     const batch = writeBatch(db);
 
     // Delete old future days
