@@ -86,19 +86,33 @@ export default function TodayPage() {
           setPausedPlan(paused);
           setPlan(null);
           setCompletedPlan(null);
-        } else if (isVerified && allPlans.length === 0) {
-          // User is verified but has no plans at all, redirect to onboarding
-          router.push('/onboarding');
-          return;
+        } else {
+          // No plans at all (no active, paused, or completed), redirect to onboarding
+          if (isVerified) {
+            router.push('/onboarding');
+            return;
+          }
+          // If not verified, show empty state (shouldn't happen due to layout check)
+          setPlan(null);
+          setPausedPlan(null);
+          setCompletedPlan(null);
         }
       }
     } catch (err: unknown) {
       console.error('Error loading plan:', err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to load your plan. Please check your connection and try again.'
-      );
+      
+      // If error is likely due to no plan existing, redirect to onboarding
+      // Otherwise show error state
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load your plan. Please check your connection and try again.';
+      
+      // Check if this is a "no plan" scenario vs a real error
+      // If user is verified, assume no plan exists and redirect
+      if (isVerified) {
+        router.push('/onboarding');
+        return;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -206,7 +220,16 @@ export default function TodayPage() {
     );
   }
 
-  if (!plan) {
+  // If no plan and no paused/completed plan, should have redirected already
+  // This is a fallback in case redirect didn't happen
+  if (!plan && !pausedPlan && !completedPlan && isVerified) {
+    // Redirect to onboarding instead of showing empty state
+    router.push('/onboarding');
+    return <LoadingSpinner message="Redirecting..." />;
+  }
+
+  // Show empty state only if there are paused/completed plans or user not verified
+  if (!plan && !pausedPlan && !completedPlan) {
     return (
       <div className="mx-auto max-w-3xl">
         <EmptyState
