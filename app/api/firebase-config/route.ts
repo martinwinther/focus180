@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 
-// Ensure this API route runs on the Edge runtime for Cloudflare Pages
+// Use Edge runtime for better performance (works on both Vercel and Cloudflare)
 export const runtime = 'edge';
 
 export async function GET() {

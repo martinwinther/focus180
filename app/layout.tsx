@@ -4,8 +4,6 @@ import './globals.css';
 import { AuthProvider } from '@/components/AuthProvider';
 import ClientMonitoring from '@/components/ClientMonitoring';
 
-export const runtime = 'edge';
-
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
