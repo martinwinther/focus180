@@ -468,7 +468,7 @@ function PlanCompletedView({ plan, userId }: PlanCompletedViewProps) {
     }
 
     loadStats();
-  }, [plan.id]);
+  }, [plan.id, userId]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';

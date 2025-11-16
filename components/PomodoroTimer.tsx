@@ -187,7 +187,7 @@ export function PomodoroTimer({
     // Valid persisted state found
     setPersistedState(persisted);
     setResumeDecision('pending');
-  }, [userId, planId, dayId, date, segments]);
+  }, [userId, planId, dayId, date, segments, dailyTargetMinutes, dayIndex]);
 
   // Handle resume decision
   const handleResume = () => {
