@@ -135,7 +135,7 @@ export function generateDailyTargets(
   config: FocusPlanConfig,
   trainingDates: string[]
 ): number[] {
-  const { targetDailyMinutes, startingDailyMinutes = 10 } = config;
+  const { targetDailyMinutes } = config;
   const n = trainingDates.length;
   
   // Edge case: no days (should not happen if getTrainingDates is used first)
@@ -144,25 +144,17 @@ export function generateDailyTargets(
   // Edge case: single training day - use target directly
   if (n === 1) return [targetDailyMinutes];
   
-  const start = startingDailyMinutes;
   const target = targetDailyMinutes;
-  
-  // Edge case: already at or above target - use flat target for all days
-  // This can happen if user sets a low target or high starting value
-  if (start >= target) {
-    return Array(n).fill(target);
-  }
-  
-  // Standard case: linear ramp from start to target
-  const totalIncrease = target - start;
-  const increment = totalIncrease / (n - 1);
+  // New behavior: start the first day at the increment and reach target on the last day.
+  // That is, for n days produce approximately: [target/n, 2*target/n, ..., target]
+  const baseStep = target / n;
   
   const targets: number[] = [];
   
-  for (let i = 0; i < n; i++) {
-    const rawValue = start + (increment * i);
-    // Round to nearest integer, but ensure the last day is exactly the target
-    const value = i === n - 1 ? target : Math.round(rawValue);
+  for (let i = 1; i <= n; i++) {
+    const rawValue = baseStep * i;
+    // Round to nearest integer for intermediate days, ensure the last day is exactly target
+    const value = i === n ? target : Math.round(rawValue);
     targets.push(value);
   }
   
