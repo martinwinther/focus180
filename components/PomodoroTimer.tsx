@@ -388,7 +388,7 @@ export function PomodoroTimer({
       }
       
       // Detect transition from running to paused
-      if (!state.isRunning && previousIsRunning && lastRunningStart !== null) {
+      if (!state.isRunning && previousIsRunning && lastRunningStart !== null && lastRunningStart !== undefined) {
         // Timer just paused - accumulate the running time
         const now = new Date();
         const runningDuration = Math.floor((now.getTime() - lastRunningStart.getTime()) / 1000);
