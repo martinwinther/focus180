@@ -16,6 +16,7 @@ export interface UsePomodoroTimerOptions {
   initialSecondsRemaining?: number;
   initialIsRunning?: boolean;
   onStateChange?: (state: PomodoroTimerState) => void;
+  onExternalStateUpdate?: (updateFn: (state: PomodoroTimerState) => void) => void;
 }
 
 export interface PomodoroTimerState {
@@ -48,6 +49,7 @@ export function usePomodoroTimer(
     initialSecondsRemaining,
     initialIsRunning = false,
     onStateChange,
+    onExternalStateUpdate,
   } = options;
 
   const [currentIndex, setCurrentIndex] = useState(initialSegmentIndex);
@@ -64,8 +66,49 @@ export function usePomodoroTimer(
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const segmentStartTimeRef = useRef<Date | null>(null);
+  const isExternalUpdateRef = useRef(false);
 
   const currentSegment = segments[currentIndex] || null;
+
+  // Expose update function for external state sync (e.g., Firestore)
+  useEffect(() => {
+    if (onExternalStateUpdate) {
+      onExternalStateUpdate((externalState: PomodoroTimerState) => {
+        isExternalUpdateRef.current = true;
+        
+        // Update state from external source
+        if (externalState.currentIndex !== currentIndex) {
+          setCurrentIndex(externalState.currentIndex);
+        }
+        
+        if (externalState.secondsRemaining !== secondsRemaining) {
+          setSecondsRemaining(externalState.secondsRemaining);
+        }
+        
+        if (externalState.isRunning !== isRunning) {
+          setIsRunning(externalState.isRunning);
+        }
+        
+        if (externalState.isFinished !== isFinished) {
+          setIsFinished(externalState.isFinished);
+        }
+        
+        // Update completed segments
+        setCompletedSegments(externalState.completedSegments);
+        
+        // Clear interval if paused
+        if (!externalState.isRunning && intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        
+        // Reset flag after state updates
+        setTimeout(() => {
+          isExternalUpdateRef.current = false;
+        }, 0);
+      });
+    }
+  }, [onExternalStateUpdate, currentIndex, secondsRemaining, isRunning, isFinished]);
 
   // Clean up interval on unmount
   useEffect(() => {
@@ -78,8 +121,9 @@ export function usePomodoroTimer(
   }, []);
 
   // Notify parent component of state changes for persistence
+  // Skip notification if this is an external update (to prevent circular updates)
   useEffect(() => {
-    if (onStateChange) {
+    if (onStateChange && !isExternalUpdateRef.current) {
       onStateChange({
         currentIndex,
         currentSegment,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { logger } from '@/lib/utils/logger';
 import { usePomodoroTimer } from '@/lib/focus/usePomodoroTimer';
 import { logCompletedWorkSegment, getSessionLogsForDay } from '@/lib/firestore/sessionLogs';
@@ -20,6 +20,13 @@ import {
   calculateEffectiveSecondsRemaining,
   type PersistedSessionState,
 } from '@/lib/focus/sessionPersistence';
+import {
+  syncSessionStateToFirestore,
+  subscribeToActiveSession,
+  clearActiveSession,
+  calculateRemainingSeconds,
+  type ActiveSessionState,
+} from '@/lib/firestore/activeSessions';
 import { GlassCard, Button } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/hooks/useDocumentTitle';
 import type { FocusSegment } from '@/lib/types/focusPlan';
@@ -505,6 +512,8 @@ interface TimerDisplayProps {
 
 function TimerDisplay({
   userId,
+  planId,
+  dayId,
   segments,
   initialTimerOptions,
   onWorkSegmentStart,
@@ -513,23 +522,240 @@ function TimerDisplay({
   isLoggingError,
   loggingErrorMessage,
 }: TimerDisplayProps) {
+  const externalUpdateRef = useRef<((state: PomodoroTimerState) => void) | null>(null);
+  const firestoreUnsubscribeRef = useRef<(() => void) | null>(null);
+  const isSyncingToFirestoreRef = useRef(false);
+  const lastRemoteUpdateRef = useRef<number>(0);
+  const segmentStartTimeRef = useRef<Date | null>(null);
+  const accumulatedSecondsRef = useRef<number>(0);
+  const lastSyncedSegmentIndexRef = useRef<number>(state.currentIndex);
+
   const { state, controls } = usePomodoroTimer({
     segments,
     autoStartFirstWorkSegment: false,
     onSegmentComplete,
     onWorkSegmentStart,
     onStateChange,
+    onExternalStateUpdate: (updateFn) => {
+      externalUpdateRef.current = updateFn;
+    },
     ...initialTimerOptions,
   });
 
   const currentSegment = segments[state.currentIndex];
-  
+  const date = new Date().toISOString().split('T')[0]; // Get current date
+
+  // Subscribe to Firestore for cross-device sync
+  useEffect(() => {
+    const unsubscribe = subscribeToActiveSession(userId, (remoteState: ActiveSessionState | null) => {
+      if (!remoteState) {
+        // No active session in Firestore
+        return;
+      }
+
+      // Ignore if this is for a different plan/day
+      if (remoteState.planId !== planId || remoteState.dayId !== dayId) {
+        return;
+      }
+
+      // Ignore if this update came from this device (prevent circular updates)
+      // We check lastUpdatedAt to see if this is a recent update we made
+      const updateTime = remoteState.lastUpdatedAt.toMillis();
+      if (updateTime <= lastRemoteUpdateRef.current) {
+        return;
+      }
+
+      // Ignore if we're currently syncing to Firestore (prevent loops)
+      if (isSyncingToFirestoreRef.current) {
+        return;
+      }
+
+      logger.debug('Received remote timer state update', {
+        status: remoteState.status,
+        segmentIndex: remoteState.segmentIndex,
+        deviceId: remoteState.deviceId,
+      });
+
+      // Calculate remaining seconds from Firestore state
+      const plannedSeconds = remoteState.segmentPlannedMinutes * 60;
+      const remainingSeconds = calculateRemainingSeconds(remoteState, plannedSeconds);
+
+      // Update timer state from remote
+      if (externalUpdateRef.current) {
+        externalUpdateRef.current({
+          currentIndex: remoteState.segmentIndex,
+          currentSegment: segments[remoteState.segmentIndex] || null,
+          secondsRemaining: remainingSeconds,
+          isRunning: remoteState.status === 'running',
+          isFinished: false,
+          completedSegments: [], // We don't sync completed segments, they're local
+        });
+
+        // Update local refs
+        if (remoteState.status === 'running' && remoteState.startedAt) {
+          segmentStartTimeRef.current = remoteState.startedAt.toDate();
+        } else {
+          segmentStartTimeRef.current = null;
+        }
+        accumulatedSecondsRef.current = remoteState.accumulatedSeconds;
+      }
+    });
+
+    firestoreUnsubscribeRef.current = unsubscribe;
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [userId, planId, dayId, segments]);
+
+  // Sync control actions to Firestore
+  const syncToFirestore = useCallback(
+    async (
+      status: 'running' | 'paused' | 'stopped',
+      startedAt?: Date | null,
+      pausedAt?: Date | null,
+      accumulatedSeconds?: number
+    ) => {
+      isSyncingToFirestoreRef.current = true;
+      lastRemoteUpdateRef.current = Date.now();
+
+      try {
+        await syncSessionStateToFirestore(userId, {
+          planId,
+          dayId,
+          date,
+          segmentIndex: state.currentIndex,
+          segment: currentSegment || segments[0],
+          status,
+          startedAt,
+          pausedAt,
+          accumulatedSeconds,
+        });
+      } catch (error) {
+        logger.error('Error syncing to Firestore:', error);
+      } finally {
+        // Reset flag after a short delay to allow Firestore update to propagate
+        setTimeout(() => {
+          isSyncingToFirestoreRef.current = false;
+        }, 100);
+      }
+    },
+    [userId, planId, dayId, date, state.currentIndex, currentSegment, segments]
+  );
+
+  // Wrap controls to sync to Firestore
+  const originalStart = controls.start;
+  const originalPause = controls.pause;
+  const originalResume = controls.resume;
+  const originalReset = controls.reset;
+  const originalSkip = controls.skipSegment;
+
+  const syncedControls = {
+    ...controls,
+    start: () => {
+      const now = new Date();
+      segmentStartTimeRef.current = now;
+      accumulatedSecondsRef.current = 0;
+      originalStart();
+      syncToFirestore('running', now, null, 0);
+    },
+    pause: () => {
+      if (segmentStartTimeRef.current) {
+        const now = new Date();
+        const elapsed = Math.floor(
+          (now.getTime() - segmentStartTimeRef.current.getTime()) / 1000
+        );
+        accumulatedSecondsRef.current += elapsed;
+        segmentStartTimeRef.current = null;
+        originalPause();
+        syncToFirestore('paused', null, now, accumulatedSecondsRef.current);
+      } else {
+        originalPause();
+        syncToFirestore('paused', null, new Date(), accumulatedSecondsRef.current);
+      }
+    },
+    resume: () => {
+      const now = new Date();
+      segmentStartTimeRef.current = now;
+      originalResume();
+      syncToFirestore('running', now, null, accumulatedSecondsRef.current);
+    },
+    reset: () => {
+      segmentStartTimeRef.current = null;
+      accumulatedSecondsRef.current = 0;
+      originalReset();
+      syncToFirestore('stopped', null, null, 0);
+      clearActiveSession(userId).catch((error) => {
+        logger.error('Error clearing active session:', error);
+      });
+    },
+    skipSegment: () => {
+      segmentStartTimeRef.current = null;
+      accumulatedSecondsRef.current = 0;
+      originalSkip();
+      // Sync the new segment state
+      const nextIndex = Math.min(state.currentIndex + 1, segments.length - 1);
+      const nextSegment = segments[nextIndex];
+      if (nextSegment) {
+        syncToFirestore('paused', null, null, 0);
+      }
+    },
+  };
+
+  // Sync segment changes to Firestore (auto-advance, skip)
+  useEffect(() => {
+    // Only sync if segment index changed and it's not from an external update
+    if (
+      state.currentIndex !== lastSyncedSegmentIndexRef.current &&
+      !isSyncingToFirestoreRef.current
+    ) {
+      lastSyncedSegmentIndexRef.current = state.currentIndex;
+      
+      // Sync the new segment state
+      const segment = segments[state.currentIndex];
+      if (segment) {
+        if (state.isRunning) {
+          // Segment auto-advanced and started
+          const now = new Date();
+          segmentStartTimeRef.current = now;
+          accumulatedSecondsRef.current = 0;
+          syncToFirestore('running', now, null, 0);
+        } else {
+          // Segment changed but not running (e.g., after skip)
+          segmentStartTimeRef.current = null;
+          accumulatedSecondsRef.current = 0;
+          syncToFirestore('paused', null, null, 0);
+        }
+      }
+    }
+  }, [state.currentIndex, state.isRunning, segments, syncToFirestore]);
+
   // Update document title with countdown when timer is running
   useDocumentTitle({
     isRunning: state.isRunning,
     secondsRemaining: state.secondsRemaining,
     segmentType: currentSegment?.type || 'work',
   });
+
+  // Clear Firestore session when timer finishes
+  useEffect(() => {
+    if (state.isFinished) {
+      clearActiveSession(userId).catch((error) => {
+        logger.error('Error clearing active session on finish:', error);
+      });
+    }
+  }, [userId, state.isFinished]);
+
+  // Clean up Firestore listener on unmount
+  useEffect(() => {
+    return () => {
+      if (firestoreUnsubscribeRef.current) {
+        firestoreUnsubscribeRef.current();
+      }
+    };
+  }, []);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -699,8 +925,8 @@ function TimerDisplay({
                 onClick={
                   state.currentIndex === 0 &&
                   state.secondsRemaining === segments[0]?.minutes * 60
-                    ? controls.start
-                    : controls.resume
+                    ? syncedControls.start
+                    : syncedControls.resume
                 }
                 className="btn-primary transition-all duration-150 hover:scale-105 hover:shadow-lg"
                 aria-label={
@@ -720,7 +946,7 @@ function TimerDisplay({
               </button>
             ) : (
               <button
-                onClick={controls.pause}
+                onClick={syncedControls.pause}
                 className="btn-primary transition-all duration-150 hover:scale-105 hover:shadow-lg"
                 aria-label="Pause session"
               >
@@ -732,7 +958,7 @@ function TimerDisplay({
             )}
 
             <button
-              onClick={controls.skipSegment}
+              onClick={syncedControls.skipSegment}
               className="btn-secondary transition-all duration-150 hover:scale-105"
               aria-label="Skip to next session"
             >
@@ -740,7 +966,7 @@ function TimerDisplay({
             </button>
 
             <button
-              onClick={controls.reset}
+              onClick={syncedControls.reset}
               className="btn-ghost transition-all duration-150 hover:scale-105"
               aria-label="Reset timer"
             >
@@ -772,7 +998,7 @@ function TimerDisplay({
             <p className="mb-6 text-lg text-white/70">
               Great work today. You completed {totalWorkMinutes} minutes of focused work.
             </p>
-            <button onClick={controls.reset} className="btn-secondary transition-all duration-150 hover:scale-105">
+            <button onClick={syncedControls.reset} className="btn-secondary transition-all duration-150 hover:scale-105">
               Review sessions
             </button>
           </div>

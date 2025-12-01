@@ -28,6 +28,19 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
     
+    // Active Sessions collection (for cross-device timer sync)
+    match /activeSessions/{userId} {
+      // Users can read their own active session
+      allow read: if isOwner(userId);
+      
+      // Users can create/update their own active session
+      allow create, update: if isAuthenticated() && 
+                              request.auth.uid == userId;
+      
+      // Users can delete their own active session
+      allow delete: if isOwner(userId);
+    }
+    
     // Focus Plans collection
     match /focusPlans/{planId} {
       // Users can read their own plans
