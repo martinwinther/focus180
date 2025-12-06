@@ -31,8 +31,12 @@ export default function OnboardingPage() {
 
   const [targetDailyMinutes, setTargetDailyMinutes] = useState(180);
   const [configMode, setConfigMode] = useState<ConfigMode>('endDate');
-  const [endDate, setEndDate] = useState('');
-  const [trainingDaysCount, setTrainingDaysCount] = useState(30);
+  const [endDate, setEndDate] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 180);
+    return date.toISOString().split('T')[0];
+  });
+  const [trainingDaysCount, setTrainingDaysCount] = useState(180);
   const [trainingDaysPerWeek, setTrainingDaysPerWeek] = useState<string[]>(
     DEFAULT_TRAINING_DAYS
   );
