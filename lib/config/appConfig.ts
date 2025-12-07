@@ -10,6 +10,8 @@ export const APP_DESCRIPTION = 'Gradually build your focus capacity with guided 
 
 export const APP_CANONICAL_URL = 'https://180focus.app';
 
+export const APP_CONTACT_EMAIL = 'hello@180focus.app';
+
 // Legacy worker URL - kept for deployment/infra references
 // TODO: Remove when DNS is fully migrated
 export const APP_WORKER_URL = 'https://focus-ramp.vercel.app';

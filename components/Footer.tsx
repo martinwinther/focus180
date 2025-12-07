@@ -32,12 +32,12 @@ export function Footer() {
               >
                 Terms
               </Link>
-              <a 
-                href="mailto:hello@180focus.app" 
+              <Link 
+                href="/contact" 
                 className="text-sm text-white/60 transition-colors hover:text-white/90"
               >
                 Contact
-              </a>
+              </Link>
             </nav>
           </div>
 

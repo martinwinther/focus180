@@ -1,6 +1,6 @@
 import { PublicHeader } from '@/components/PublicHeader';
 import { Footer } from '@/components/Footer';
-import { APP_NAME } from '@/lib/config/appConfig';
+import { APP_NAME, APP_CONTACT_EMAIL } from '@/lib/config/appConfig';
 
 export default function PrivacyPage() {
   return (
@@ -62,6 +62,20 @@ export default function PrivacyPage() {
                 <p className="leading-relaxed">
                   You can access, modify, or delete your data at any time through the app settings. 
                   If you delete your account, all associated data is removed from our systems.
+                </p>
+              </div>
+
+              <div>
+                <h2 className="mb-3 text-2xl font-semibold text-white">Contact us</h2>
+                <p className="leading-relaxed">
+                  If you have questions about this privacy policy or how we handle your data, please contact us at{' '}
+                  <a 
+                    href={`mailto:${APP_CONTACT_EMAIL}`}
+                    className="text-white underline hover:text-white/80"
+                  >
+                    {APP_CONTACT_EMAIL}
+                  </a>
+                  .
                 </p>
               </div>
 
