@@ -43,6 +43,28 @@
     min-height: 100vh;
     min-height: -webkit-fill-available;
   }
+
+  /* Status bar overlay for iOS PWA - blurs the status bar area to blend with app background */
+  .status-bar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top, 44px);
+    min-height: env(safe-area-inset-top, 44px);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    z-index: 9999;
+    pointer-events: none;
+    display: block;
+  }
+
+  @supports not (padding: env(safe-area-inset-top)) {
+    .status-bar-overlay {
+      display: none;
+    }
+  }
 }
 
 @layer components {

@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ViewportMeta } from '@/components/ViewportMeta';
+import { StatusBarOverlay } from '@/components/StatusBarOverlay';
 import { APP_NAME, APP_DESCRIPTION, APP_CANONICAL_URL } from '@/lib/config/appConfig';
 
 const inter = Inter({
@@ -90,6 +91,7 @@ export default function RootLayout({
             `,
           }}
         />
+        <StatusBarOverlay />
         <ViewportMeta />
         <AuthProvider>{children}</AuthProvider>
       </body>
