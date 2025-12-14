@@ -15,23 +15,44 @@ function SignInForm() {
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
 
-  // Check if user is coming from email verification
+  // Check if user is coming from email verification or password reset
   useEffect(() => {
     // Check for our custom verified param or Firebase's verification params
     const verified = searchParams.get('verified');
+    const passwordReset = searchParams.get('passwordReset');
     const mode = searchParams.get('mode');
     const oobCode = searchParams.get('oobCode');
     
     // If we have verification-related params, show success message
     if (verified === 'true' || mode === 'verifyEmail' || oobCode) {
       setEmailVerified(true);
+      setSuccessMessage('Email verified! You can now sign in.');
       // Clean up URL by removing query params after showing message
       const url = new URL(window.location.href);
       url.search = '';
       window.history.replaceState({}, '', url.toString());
       // Auto-hide message after 5 seconds
-      setTimeout(() => setEmailVerified(false), 5000);
+      setTimeout(() => {
+        setEmailVerified(false);
+        setSuccessMessage('');
+      }, 5000);
+    }
+
+    // If coming from password reset, show success message
+    if (passwordReset === 'true') {
+      setEmailVerified(true);
+      setSuccessMessage('Password reset successful! You can now sign in with your new password.');
+      // Clean up URL
+      const url = new URL(window.location.href);
+      url.search = '';
+      window.history.replaceState({}, '', url.toString());
+      // Auto-hide message after 5 seconds
+      setTimeout(() => {
+        setEmailVerified(false);
+        setSuccessMessage('');
+      }, 5000);
     }
   }, [searchParams]);
 
@@ -231,7 +252,7 @@ function SignInForm() {
                   d="M5 13l4 4L19 7"
                 />
               </svg>
-              <span>Email verified! You can now sign in.</span>
+              <span>{successMessage || 'Email verified! You can now sign in.'}</span>
             </div>
           </div>
         )}
@@ -263,12 +284,20 @@ function SignInForm() {
           </div>
 
           <div>
-            <label
-              htmlFor="password"
-              className="mb-2 block text-sm font-medium text-white/90"
-            >
-              Password
-            </label>
+            <div className="mb-2 flex items-center justify-between">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-white/90"
+              >
+                Password
+              </label>
+              <Link
+                href="/auth/forgot-password"
+                className="text-xs text-white/70 underline hover:text-white/90"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <input
               id="password"
               type="password"
