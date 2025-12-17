@@ -152,12 +152,17 @@ function ResetPasswordForm() {
         </p>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-200 backdrop-blur-sm">
+          <div
+            id="reset-password-error"
+            role="alert"
+            aria-live="assertive"
+            className="mb-4 rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-200 backdrop-blur-sm"
+          >
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" aria-describedby={error ? 'reset-password-error' : undefined}>
           <div>
             <label
               htmlFor="password"
@@ -175,8 +180,11 @@ function ResetPasswordForm() {
               required
               minLength={6}
               disabled={loading || !oobCode}
+              aria-describedby="password-help"
+              aria-invalid={!!error}
+              autoComplete="new-password"
             />
-            <p className="mt-1 text-xs text-white/60">
+            <p id="password-help" className="mt-1 text-xs text-white/60">
               Must be at least 6 characters
             </p>
           </div>
@@ -198,6 +206,8 @@ function ResetPasswordForm() {
               required
               minLength={6}
               disabled={loading || !oobCode}
+              aria-invalid={!!error}
+              autoComplete="new-password"
             />
           </div>
 
@@ -205,6 +215,7 @@ function ResetPasswordForm() {
             type="submit"
             className="btn-primary w-full"
             disabled={loading || !oobCode}
+            aria-busy={loading}
           >
             {loading ? 'Resetting password...' : 'Reset password'}
           </button>

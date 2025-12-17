@@ -253,12 +253,17 @@ export default function OnboardingPage() {
         </p>
 
         {error && (
-          <div className="mb-6 rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-200 backdrop-blur-sm">
+          <div
+            id="onboarding-error"
+            role="alert"
+            aria-live="assertive"
+            className="mb-6 rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-200 backdrop-blur-sm"
+          >
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6" aria-describedby={error ? 'onboarding-error' : undefined}>
           <div>
             <label
               htmlFor="targetDailyMinutes"
@@ -282,13 +287,15 @@ export default function OnboardingPage() {
               }`}
               disabled={isSubmitting}
               required
+              aria-describedby={validationErrors.targetDailyMinutes ? 'targetDailyMinutes-error' : 'targetDailyMinutes-help'}
+              aria-invalid={!!validationErrors.targetDailyMinutes}
             />
             {validationErrors.targetDailyMinutes ? (
-              <p className="mt-1 text-xs text-red-300">
+              <p id="targetDailyMinutes-error" role="alert" className="mt-1 text-xs text-red-300">
                 {validationErrors.targetDailyMinutes}
               </p>
             ) : (
-              <p className="mt-1 text-xs text-white/60">
+              <p id="targetDailyMinutes-help" className="mt-1 text-xs text-white/60">
                 Your end goal for daily focus time (e.g., 180 minutes = 3 hours)
               </p>
             )}
@@ -347,9 +354,11 @@ export default function OnboardingPage() {
                   }`}
                   disabled={isSubmitting}
                   required={configMode === 'endDate'}
+                  aria-describedby={validationErrors.endDate ? 'endDate-error' : undefined}
+                  aria-invalid={!!validationErrors.endDate}
                 />
                 {validationErrors.endDate && (
-                  <p className="mt-1 text-xs text-red-300">{validationErrors.endDate}</p>
+                  <p id="endDate-error" role="alert" className="mt-1 text-xs text-red-300">{validationErrors.endDate}</p>
                 )}
               </div>
             ) : (
@@ -379,9 +388,11 @@ export default function OnboardingPage() {
                   }`}
                   disabled={isSubmitting}
                   required={configMode === 'trainingDaysCount'}
+                  aria-describedby={validationErrors.trainingDaysCount ? 'trainingDaysCount-error' : undefined}
+                  aria-invalid={!!validationErrors.trainingDaysCount}
                 />
                 {validationErrors.trainingDaysCount && (
-                  <p className="mt-1 text-xs text-red-300">
+                  <p id="trainingDaysCount-error" role="alert" className="mt-1 text-xs text-red-300">
                     {validationErrors.trainingDaysCount}
                   </p>
                 )}
@@ -390,10 +401,13 @@ export default function OnboardingPage() {
           </div>
 
           <div>
-            <label className="mb-3 block text-sm font-medium text-white/90">
+            <label id="trainingDays-label" className="mb-3 block text-sm font-medium text-white/90">
               Training days per week
             </label>
             <div
+              role="group"
+              aria-labelledby="trainingDays-label"
+              aria-describedby={validationErrors.trainingDaysPerWeek ? 'trainingDays-error' : 'trainingDays-help'}
               className={`flex flex-wrap gap-2 ${
                 validationErrors.trainingDaysPerWeek ? 'rounded-lg ring-2 ring-red-400 p-2' : ''
               }`}
@@ -404,6 +418,7 @@ export default function OnboardingPage() {
                   type="button"
                   onClick={() => toggleTrainingDay(day)}
                   disabled={isSubmitting}
+                  aria-pressed={trainingDaysPerWeek.includes(day)}
                   className={`rounded-lg px-4 py-2 text-sm font-medium transition-all disabled:opacity-50 ${
                     trainingDaysPerWeek.includes(day)
                       ? 'bg-white/20 text-white ring-2 ring-white/30'
@@ -415,11 +430,11 @@ export default function OnboardingPage() {
               ))}
             </div>
             {validationErrors.trainingDaysPerWeek ? (
-              <p className="mt-2 text-xs text-red-300">
+              <p id="trainingDays-error" role="alert" className="mt-2 text-xs text-red-300">
                 {validationErrors.trainingDaysPerWeek}
               </p>
             ) : (
-              <p className="mt-2 text-xs text-white/60">
+              <p id="trainingDays-help" className="mt-2 text-xs text-white/60">
                 Choose which days you&apos;ll train (we recommend starting with weekdays)
               </p>
             )}
@@ -432,6 +447,7 @@ export default function OnboardingPage() {
             <button
               type="submit"
               disabled={isSubmitting || hasBlockingErrors()}
+              aria-busy={isSubmitting}
               className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Creating plan...' : 'Create plan'}

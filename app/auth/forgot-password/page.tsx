@@ -127,12 +127,17 @@ export default function ForgotPasswordPage() {
         </p>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-200 backdrop-blur-sm">
+          <div
+            id="forgot-password-error"
+            role="alert"
+            aria-live="assertive"
+            className="mb-4 rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-200 backdrop-blur-sm"
+          >
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" aria-describedby={error ? 'forgot-password-error' : undefined}>
           <div>
             <label
               htmlFor="email"
@@ -149,6 +154,8 @@ export default function ForgotPasswordPage() {
               placeholder="you@example.com"
               required
               disabled={loading}
+              aria-invalid={!!error}
+              autoComplete="email"
             />
           </div>
 
@@ -156,6 +163,7 @@ export default function ForgotPasswordPage() {
             type="submit"
             className="btn-primary w-full"
             disabled={loading}
+            aria-busy={loading}
           >
             {loading ? 'Sending...' : 'Send reset link'}
           </button>

@@ -291,7 +291,7 @@ export function PomodoroTimer({
 
     // Check if already logged (prevent double-logging on resume)
     if (loggedSegmentIndices.has(segmentIndex)) {
-      console.warn('Segment already logged, skipping:', segmentIndex);
+      logger.warn('Segment already logged, skipping:', segmentIndex);
       return;
     }
 
@@ -887,6 +887,10 @@ function TimerDisplay({
 
         {/* Timer Display */}
         <div
+          role="timer"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-label={`${isWorkSegment ? 'Work' : 'Break'} timer: ${formatTime(state.secondsRemaining)} remaining`}
           className={`mb-6 text-8xl font-bold tabular-nums transition-colors duration-300 ${
             isWorkSegment ? 'text-blue-300' : 'text-green-300'
           }`}
@@ -895,19 +899,26 @@ function TimerDisplay({
         </div>
 
         {/* Segment Progress */}
-        <div className="mb-6 text-white/70">
+        <div className="mb-6 text-white/70" aria-live="polite">
           Session {state.currentIndex + 1} of {segments.length}
         </div>
 
         {/* Work Progress Bar */}
-        <div className="mb-6">
+        <div className="mb-6" role="group" aria-label="Daily work progress">
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="text-white/60">Work completed today</span>
             <span className="font-semibold text-white">
               {completedWorkMinutes} / {totalWorkMinutes} min
             </span>
           </div>
-          <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-3 w-full overflow-hidden rounded-full bg-white/10"
+            role="progressbar"
+            aria-valuenow={Math.round(progressPercentage)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`${completedWorkMinutes} of ${totalWorkMinutes} minutes completed`}
+          >
             <div
               className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-500"
               style={{ width: `${progressPercentage}%` }}

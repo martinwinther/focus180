@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { User } from 'firebase/auth';
 import * as Sentry from '@sentry/nextjs';
+import { logger } from '@/lib/utils/logger';
 
 interface AuthContextType {
   user: User | null;
@@ -56,14 +57,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           });
         } catch (error) {
-          console.error('Error initializing Firebase Auth:', error);
-          Sentry.captureException(error);
+          logger.error('Error initializing Firebase Auth:', error);
           setLoading(false);
         }
       })
       .catch((error) => {
-        console.error('Error loading Firebase modules:', error);
-        Sentry.captureException(error);
+        logger.error('Error loading Firebase modules:', error);
         setLoading(false);
       });
 
@@ -85,8 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear Sentry user context
       Sentry.setUser(null);
     } catch (error) {
-      console.error('Error signing out:', error);
-      Sentry.captureException(error);
+      logger.error('Error signing out:', error);
     }
   };
 

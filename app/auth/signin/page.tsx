@@ -258,12 +258,17 @@ function SignInForm() {
         )}
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-200 backdrop-blur-sm">
+          <div
+            id="signin-error"
+            role="alert"
+            aria-live="assertive"
+            className="mb-4 rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-200 backdrop-blur-sm"
+          >
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" aria-describedby={error ? 'signin-error' : undefined}>
           <div>
             <label
               htmlFor="email"
@@ -280,6 +285,8 @@ function SignInForm() {
               placeholder="you@example.com"
               required
               disabled={loading}
+              aria-invalid={!!error}
+              autoComplete="email"
             />
           </div>
 
@@ -307,6 +314,8 @@ function SignInForm() {
               placeholder="••••••••"
               required
               disabled={loading}
+              aria-invalid={!!error}
+              autoComplete="current-password"
             />
           </div>
 
@@ -314,6 +323,7 @@ function SignInForm() {
             type="submit"
             className="btn-primary w-full"
             disabled={loading}
+            aria-busy={loading}
           >
             {loading ? 'Signing in...' : 'Sign in'}
           </button>

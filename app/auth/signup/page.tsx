@@ -131,12 +131,17 @@ export default function SignUpPage() {
         </p>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-200 backdrop-blur-sm">
+          <div
+            id="signup-error"
+            role="alert"
+            aria-live="assertive"
+            className="mb-4 rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-200 backdrop-blur-sm"
+          >
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" aria-describedby={error ? 'signup-error' : undefined}>
           <div>
             <label
               htmlFor="email"
@@ -153,6 +158,8 @@ export default function SignUpPage() {
               placeholder="you@example.com"
               required
               disabled={loading}
+              aria-invalid={!!error}
+              autoComplete="email"
             />
           </div>
 
@@ -173,8 +180,11 @@ export default function SignUpPage() {
               required
               minLength={6}
               disabled={loading}
+              aria-describedby="password-help"
+              aria-invalid={!!error}
+              autoComplete="new-password"
             />
-            <p className="mt-1 text-xs text-white/60">
+            <p id="password-help" className="mt-1 text-xs text-white/60">
               Must be at least 6 characters
             </p>
           </div>
@@ -194,6 +204,7 @@ export default function SignUpPage() {
             type="submit"
             className="btn-primary w-full"
             disabled={loading}
+            aria-busy={loading}
           >
             {loading ? 'Creating account...' : 'Create account'}
           </button>

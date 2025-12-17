@@ -1,6 +1,7 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
 import { logger } from '@/lib/utils/logger';
 
 // Try to get config from build-time env vars first, fallback to fetching from API
@@ -31,6 +32,7 @@ if (envConfig.apiKey && envConfig.projectId) {
 let firebaseApp: FirebaseApp | undefined;
 let firebaseAuth: Auth | undefined;
 let firebaseFirestore: Firestore | undefined;
+let firebaseAnalytics: Analytics | undefined;
 
 async function fetchFirebaseConfig(): Promise<typeof firebaseConfig> {
   try {
@@ -118,6 +120,20 @@ async function initializeFirebase() {
     if (firebaseApp) {
       firebaseAuth = getAuth(firebaseApp);
       firebaseFirestore = getFirestore(firebaseApp);
+      
+      // Initialize Analytics only in browser and if supported
+      try {
+        const analyticsSupported = await isSupported();
+        if (analyticsSupported) {
+          firebaseAnalytics = getAnalytics(firebaseApp);
+          logger.info('Firebase Analytics initialized');
+        } else {
+          logger.info('Firebase Analytics not supported in this environment');
+        }
+      } catch (analyticsError) {
+        // Analytics might fail in some environments (e.g., ad blockers)
+        logger.warn('Failed to initialize Firebase Analytics:', analyticsError);
+      }
     } else {
       logger.error('Failed to create Firebase app instance');
     }
@@ -192,6 +208,23 @@ export async function getFirebaseFirestore(): Promise<Firestore> {
   return firebaseFirestore;
 }
 
+/**
+ * Get Firebase Analytics instance.
+ * Returns undefined if analytics is not supported or not initialized.
+ */
+export async function getFirebaseAnalytics(): Promise<Analytics | undefined> {
+  // Only work on client side
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+  
+  if (!firebaseAnalytics) {
+    await initializeFirebase();
+  }
+  
+  return firebaseAnalytics;
+}
+
 // Export direct references for backward compatibility (will be undefined on server)
-export { firebaseApp, firebaseAuth, firebaseFirestore };
+export { firebaseApp, firebaseAuth, firebaseFirestore, firebaseAnalytics };
 

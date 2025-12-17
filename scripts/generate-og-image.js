@@ -43,7 +43,7 @@ async function generateOGImage() {
     });
 
     // Wait a bit for fonts to load
-    await page.waitForTimeout(1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     console.log('Generating screenshot...');
     await page.screenshot({
